@@ -24,13 +24,13 @@ func (s *stepCreateAMI) Run(ctx context.Context, state multistep.StateBag) multi
 
 	// Create the image
 	amiName := config.AMIName
-	if config.AMIEncryptBootVolume {
+	if config.AMIEncryptBootVolume != nil && *config.AMIEncryptBootVolume {
 		// to avoid having a temporary unencrypted
 		// image named config.AMIName
 		amiName = random.AlphaNum(7)
 	}
 
-	ui.Say(fmt.Sprintf("Creating unencrypted AMI %s from instance %s", amiName, *instance.InstanceId))
+	ui.Say(fmt.Sprintf("Creating AMI %s from instance %s", amiName, *instance.InstanceId))
 	createOpts := &ec2.CreateImageInput{
 		InstanceId:          instance.InstanceId,
 		Name:                &amiName,

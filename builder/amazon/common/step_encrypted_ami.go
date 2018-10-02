@@ -14,7 +14,7 @@ import (
 type StepCreateEncryptedAMICopy struct {
 	image             *ec2.Image
 	KeyID             string
-	EncryptBootVolume bool
+	EncryptBootVolume *bool
 	Name              string
 	AMIMappings       []BlockDevice
 }
@@ -25,14 +25,14 @@ func (s *StepCreateEncryptedAMICopy) Run(ctx context.Context, state multistep.St
 	kmsKeyId := s.KeyID
 
 	// Encrypt boot not set, so skip step
-	if !s.EncryptBootVolume {
+	if s.EncryptBootVolume != nil && !*s.EncryptBootVolume {
 		if kmsKeyId != "" {
 			log.Printf("Ignoring KMS Key ID: %s, encrypted=false", kmsKeyId)
 		}
 		return multistep.ActionContinue
 	}
 
-	ui.Say("Creating Encrypted AMI Copy")
+	ui.Say(fmt.Sprintf("Creating AMI Copy."))
 
 	amis := state.Get("amis").(map[string]string)
 	var region, id string
@@ -52,7 +52,7 @@ func (s *StepCreateEncryptedAMICopy) Run(ctx context.Context, state multistep.St
 		Name:          &s.Name, // Try to overwrite existing AMI
 		SourceImageId: aws.String(id),
 		SourceRegion:  aws.String(region),
-		Encrypted:     aws.Bool(true),
+		Encrypted:     s.EncryptBootVolume,
 		KmsKeyId:      aws.String(kmsKeyId),
 	}
 
