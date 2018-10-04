@@ -3,6 +3,7 @@ package common
 import (
 	"fmt"
 	"github.com/aws/aws-sdk-go/service/ec2/ec2iface"
+	"log"
 )
 
 func listEC2Regions(ec2conn ec2iface.EC2API) ([]string, error) {
@@ -10,6 +11,7 @@ func listEC2Regions(ec2conn ec2iface.EC2API) ([]string, error) {
 	resultRegions, err := ec2conn.DescribeRegions(nil)
 	if err != nil {
 		return []string{}, err
+		log.Printf("DescribeRegions: %v", err)
 	}
 	for _, region := range resultRegions.Regions {
 		regions = append(regions, *region.RegionName)
@@ -25,12 +27,10 @@ func ValidateRegion(region string, ec2conn ec2iface.EC2API) error {
 	if err != nil {
 		return err
 	}
-
 	for _, valid := range regions {
 		if region == valid {
 			return nil
 		}
 	}
-
-	return fmt.Errorf("Invalid region: %s", region)
+	return fmt.Errorf("Invalid region %s, available regions: %v", region, regions)
 }
