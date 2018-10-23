@@ -175,6 +175,9 @@ each category, the available configuration keys are alphabetized.
         block device mapping.
 
     -   `encrypted` (boolean) - Indicates whether or not to encrypt the volume.
+        By default, Packer will keep the encryption setting to what it was in
+        the source image. Setting `false` will result in an unencrypted device,
+        and `true` will result in an encrypted one.
 
     -   `kms_key_id` (string) - The ARN for the KMS encryption key. When
         specifying `kms_key_id`, `encrypted` needs to be set to `true`.
