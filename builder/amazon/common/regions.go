@@ -21,20 +21,38 @@ func listEC2Regions(ec2conn ec2iface.EC2API) ([]string, error) {
 	return regions, nil
 }
 
-// ValidateRegion returns an error if the region name is valid
-// and exists; otherwise nil.
+// ValidateRegion returns nil if the region name is valid
+// and exists; otherwise an error.
 // ValidateRegion calls ec2conn.DescribeRegions to get the list of
 // regions available to this account, a DescribeRegions error
 // could be returned
-func ValidateRegion(region string, ec2conn ec2iface.EC2API) error {
-	regions, err := listEC2Regions(ec2conn)
+func (c *AccessConfig) ValidateRegion(regions ...string) error {
+	ec2conn, err := c.NewEC2Connection()
 	if err != nil {
 		return err
 	}
-	for _, valid := range regions {
-		if region == valid {
-			return nil
+
+	validRegions, err := listEC2Regions(ec2conn)
+	if err != nil {
+		return err
+	}
+
+	var invalidRegions []string
+	for _, region := range regions {
+		found := false
+		for _, validRegion := range validRegions {
+			if region == validRegion {
+				found = true
+				break
+			}
+		}
+		if !found {
+			invalidRegions = append(invalidRegions, region)
 		}
 	}
-	return fmt.Errorf("Invalid region %s, available regions: %v", region, regions)
+
+	if len(invalidRegions) > 0 {
+		return fmt.Errorf("Invalid region(s): %v, available regions: %v", invalidRegions, validRegions)
+	}
+	return nil
 }

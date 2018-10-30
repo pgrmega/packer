@@ -1,8 +1,10 @@
 package common
 
 import (
+	"crypto/tls"
 	"fmt"
 	"log"
+	"net/http"
 	"strings"
 	"time"
 
@@ -12,23 +14,27 @@ import (
 	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/aws/aws-sdk-go/service/ec2/ec2iface"
 	"github.com/hashicorp/go-cleanhttp"
 	"github.com/hashicorp/packer/template/interpolate"
 )
 
 // AccessConfig is for common configuration related to AWS access
 type AccessConfig struct {
-	AccessKey            string `mapstructure:"access_key"`
-	CustomEndpointEc2    string `mapstructure:"custom_endpoint_ec2"`
-	DecodeAuthZMessages  bool   `mapstructure:"decode_authorization_messages"`
-	MFACode              string `mapstructure:"mfa_code"`
-	ProfileName          string `mapstructure:"profile"`
-	RawRegion            string `mapstructure:"region"`
-	SecretKey            string `mapstructure:"secret_key"`
-	SkipValidation       bool   `mapstructure:"skip_region_validation"`
-	SkipMetadataApiCheck bool   `mapstructure:"skip_metadata_api_check"`
-	Token                string `mapstructure:"token"`
-	session              *session.Session
+	AccessKey             string `mapstructure:"access_key"`
+	CustomEndpointEc2     string `mapstructure:"custom_endpoint_ec2"`
+	DecodeAuthZMessages   bool   `mapstructure:"decode_authorization_messages"`
+	InsecureSkipTLSVerify bool   `mapstructure:"insecure_skip_tls_verify"`
+	MFACode               string `mapstructure:"mfa_code"`
+	ProfileName           string `mapstructure:"profile"`
+	RawRegion             string `mapstructure:"region"`
+	SecretKey             string `mapstructure:"secret_key"`
+	SkipValidation        bool   `mapstructure:"skip_region_validation"`
+	SkipMetadataApiCheck  bool   `mapstructure:"skip_metadata_api_check"`
+	Token                 string `mapstructure:"token"`
+	session               *session.Session
+
+	getEC2Connection func() ec2iface.EC2API
 }
 
 // Config returns a valid aws.Config object for access to AWS services, or
@@ -55,6 +61,14 @@ func (c *AccessConfig) Session() (*session.Session, error) {
 
 	if c.CustomEndpointEc2 != "" {
 		config = config.WithEndpoint(c.CustomEndpointEc2)
+	}
+
+	if c.InsecureSkipTLSVerify {
+		config := config.WithHTTPClient(cleanhttp.DefaultClient())
+		transport := config.HTTPClient.Transport.(*http.Transport)
+		transport.TLSClientConfig = &tls.Config{
+			InsecureSkipVerify: true,
+		}
 	}
 
 	opts := session.Options{
@@ -148,16 +162,22 @@ func (c *AccessConfig) Prepare(ctx *interpolate.Context) []error {
 	}
 
 	if c.RawRegion != "" && !c.SkipValidation {
-		sess, err := c.Session()
-		if err != nil {
-			errs = append(errs, err)
-		}
-		ec2conn := ec2.New(sess)
-		err = ValidateRegion(c.RawRegion, ec2conn)
+		err := c.ValidateRegion(c.RawRegion)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("error validating region: %s", err.Error()))
 		}
 	}
 
 	return errs
+}
+
+func (c *AccessConfig) NewEC2Connection() (ec2iface.EC2API, error) {
+	if c.getEC2Connection != nil {
+		return c.getEC2Connection(), nil
+	}
+	sess, err := c.Session()
+	if err != nil {
+		return nil, err
+	}
+	return ec2.New(sess), nil
 }

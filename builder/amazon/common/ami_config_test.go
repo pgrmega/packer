@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/awstesting/mock"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/ec2/ec2iface"
 )
@@ -18,15 +17,14 @@ func testAMIConfig() *AMIConfig {
 }
 
 func getFakeAccessConfig(region string) *AccessConfig {
-	return &AccessConfig{
-		RawRegion: region,
-		session:   mock.Session,
-	}
+	c := testAccessConfig()
+	c.RawRegion = region
+	return c
 }
 
 func TestAMIConfigPrepare_name(t *testing.T) {
 	c := testAMIConfig()
-	accessConf := getFakeAccessConfig("wherever")
+	accessConf := testAccessConfig()
 	c.AMISkipRegionValidation = true
 	if err := c.Prepare(accessConf, nil); err != nil {
 		t.Fatalf("shouldn't have err: %s", err)
@@ -59,8 +57,9 @@ func TestAMIConfigPrepare_regions(t *testing.T) {
 
 	var errs []error
 	var err error
+	accessConf := testAccessConfig()
 	mockConn := &mockEC2Client{}
-	if errs = c.prepareRegions(mockConn, nil, errs); len(errs) > 0 {
+	if errs = c.prepareRegions(accessConf); len(errs) > 0 {
 		t.Fatalf("shouldn't have err: %#v", errs)
 	}
 
@@ -69,18 +68,18 @@ func TestAMIConfigPrepare_regions(t *testing.T) {
 	if err != nil {
 		t.Fatalf("shouldn't have err: %s", err.Error())
 	}
-	if errs = c.prepareRegions(mockConn, nil, errs); len(errs) > 0 {
+	if errs = c.prepareRegions(accessConf); len(errs) > 0 {
 		t.Fatalf("shouldn't have err: %#v", errs)
 	}
 
 	c.AMIRegions = []string{"foo"}
-	if errs = c.prepareRegions(mockConn, nil, errs); len(errs) == 0 {
+	if errs = c.prepareRegions(accessConf); len(errs) == 0 {
 		t.Fatal("should have error")
 	}
 	errs = errs[:0]
 
 	c.AMIRegions = []string{"us-east-1", "us-west-1", "us-east-1"}
-	if errs = c.prepareRegions(mockConn, nil, errs); len(errs) > 0 {
+	if errs = c.prepareRegions(accessConf); len(errs) > 0 {
 		t.Fatalf("bad: %s", errs[0])
 	}
 
@@ -91,7 +90,7 @@ func TestAMIConfigPrepare_regions(t *testing.T) {
 
 	c.AMIRegions = []string{"custom"}
 	c.AMISkipRegionValidation = true
-	if errs = c.prepareRegions(mockConn, nil, errs); len(errs) > 0 {
+	if errs = c.prepareRegions(accessConf); len(errs) > 0 {
 		t.Fatal("shouldn't have error")
 	}
 	c.AMISkipRegionValidation = false
@@ -102,7 +101,7 @@ func TestAMIConfigPrepare_regions(t *testing.T) {
 		"us-west-1": "789-012-3456",
 		"us-east-2": "456-789-0123",
 	}
-	if errs = c.prepareRegions(mockConn, nil, errs); len(errs) > 0 {
+	if errs = c.prepareRegions(accessConf); len(errs) > 0 {
 		t.Fatal(fmt.Sprintf("shouldn't have error: %s", errs[0]))
 	}
 
@@ -112,7 +111,7 @@ func TestAMIConfigPrepare_regions(t *testing.T) {
 		"us-west-1": "789-012-3456",
 		"us-east-2": "",
 	}
-	if errs = c.prepareRegions(mockConn, nil, errs); len(errs) > 0 {
+	if errs = c.prepareRegions(accessConf); len(errs) > 0 {
 		t.Fatal("should have passed; we are able to use default KMS key if not sharing")
 	}
 
@@ -123,7 +122,7 @@ func TestAMIConfigPrepare_regions(t *testing.T) {
 		"us-west-1": "789-012-3456",
 		"us-east-2": "",
 	}
-	if errs = c.prepareRegions(mockConn, nil, errs); len(errs) > 0 {
+	if errs = c.prepareRegions(accessConf); len(errs) > 0 {
 		t.Fatal("should have an error b/c can't use default KMS key if sharing")
 	}
 
@@ -133,7 +132,7 @@ func TestAMIConfigPrepare_regions(t *testing.T) {
 		"us-west-1": "789-012-3456",
 		"us-east-2": "456-789-0123",
 	}
-	if errs = c.prepareRegions(mockConn, nil, errs); len(errs) > 0 {
+	if errs = c.prepareRegions(accessConf); len(errs) > 0 {
 		t.Fatal("should have error b/c theres a region in the key map that isn't in ami_regions")
 	}
 
@@ -144,7 +143,6 @@ func TestAMIConfigPrepare_regions(t *testing.T) {
 	}
 
 	c.AMISkipRegionValidation = true
-	accessConf := getFakeAccessConfig("wherever")
 	if err := c.Prepare(accessConf, nil); err == nil {
 		t.Fatal("should have error b/c theres a region in in ami_regions that isn't in the key map")
 	}
@@ -158,7 +156,7 @@ func TestAMIConfigPrepare_regions(t *testing.T) {
 		"us-east-1": "123-456-7890",
 		"us-west-1": "",
 	}
-	if errs = c.prepareRegions(mockConn, nil, errs); len(errs) > 0 {
+	if errs = c.prepareRegions(accessConf); len(errs) > 0 {
 		t.Fatal("should have error b/c theres a region in in ami_regions that isn't in the key map")
 	}
 
@@ -166,7 +164,7 @@ func TestAMIConfigPrepare_regions(t *testing.T) {
 	accessConf = getFakeAccessConfig("us-east-1")
 	c.AMIRegions = []string{"us-east-1", "us-west-1", "us-east-2"}
 	c.AMIRegionKMSKeyIDs = nil
-	if errs = c.prepareRegions(mockConn, accessConf, errs); len(errs) > 0 {
+	if errs = c.prepareRegions(accessConf); len(errs) > 0 {
 		t.Fatal("should allow user to have the raw region in ami_regions")
 	}
 
@@ -174,10 +172,11 @@ func TestAMIConfigPrepare_regions(t *testing.T) {
 
 func TestAMIConfigPrepare_Share_EncryptedBoot(t *testing.T) {
 	c := testAMIConfig()
+	c.AMISkipRegionValidation = true
 	c.AMIUsers = []string{"testAccountID"}
 	c.AMIEncryptBootVolume = &[]bool{true}[0]
 
-	accessConf := getFakeAccessConfig("wherever")
+	accessConf := testAccessConfig()
 
 	c.AMIKmsKeyId = ""
 	if err := c.Prepare(accessConf, nil); err == nil {
@@ -192,8 +191,9 @@ func TestAMIConfigPrepare_Share_EncryptedBoot(t *testing.T) {
 
 func TestAMINameValidation(t *testing.T) {
 	c := testAMIConfig()
+	c.AMISkipRegionValidation = true
 
-	accessConf := getFakeAccessConfig("wherever")
+	accessConf := testAccessConfig()
 
 	c.AMIName = "aa"
 	if err := c.Prepare(accessConf, nil); err == nil {
