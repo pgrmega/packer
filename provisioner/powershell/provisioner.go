@@ -147,11 +147,11 @@ func (p *Provisioner) Prepare(raws ...interface{}) error {
 	}
 
 	if p.config.ExecuteCommand == "" {
-		p.config.ExecuteCommand = `powershell -executionpolicy bypass "& { if (Test-Path variable:global:ProgressPreference){$ProgressPreference='SilentlyContinue'};. {{.Vars}}; &'{{.Path}}';exit $LastExitCode }"`
+		p.config.ExecuteCommand = `powershell -executionpolicy bypass "& { if (Test-Path variable:global:ProgressPreference){set-variable -name variable:global:ProgressPreference -value 'SilentlyContinue'};. {{.Vars}}; &'{{.Path}}'; exit $LastExitCode }"`
 	}
 
 	if p.config.ElevatedExecuteCommand == "" {
-		p.config.ElevatedExecuteCommand = `powershell -executionpolicy bypass "& { if (Test-Path variable:global:ProgressPreference){$ProgressPreference='SilentlyContinue'};. {{.Vars}}; &'{{.Path}}'; exit $LastExitCode }"`
+		p.config.ElevatedExecuteCommand = `powershell -executionpolicy bypass "& { if (Test-Path variable:global:ProgressPreference){set-variable -name variable:global:ProgressPreference -value 'SilentlyContinue'};. {{.Vars}}; &'{{.Path}}'; exit $LastExitCode }"`
 	}
 
 	if p.config.Inline != nil && len(p.config.Inline) == 0 {
@@ -188,11 +188,6 @@ func (p *Provisioner) Prepare(raws ...interface{}) error {
 	if p.config.Script != "" && len(p.config.Scripts) > 0 {
 		errs = packer.MultiErrorAppend(errs,
 			errors.New("Only one of script or scripts can be specified."))
-	}
-
-	if p.config.ElevatedUser != "" && p.config.ElevatedPassword == "" {
-		errs = packer.MultiErrorAppend(errs,
-			errors.New("Must supply an 'elevated_password' if 'elevated_user' provided"))
 	}
 
 	if p.config.ElevatedUser == "" && p.config.ElevatedPassword != "" {
