@@ -160,6 +160,7 @@ require (
 	github.com/stretchr/testify v1.2.2
 	github.com/tent/http-link-go v0.0.0-20130702225549-ac974c61c2f9 // indirect
 	github.com/tv42/httpunix v0.0.0-20150427012821-b75d8614f926 // indirect
+	github.com/txgruppi/parseargs-go v0.0.0-20170124215356-4cb98496e521
 	github.com/ugorji/go v0.0.0-20151218193438-646ae4a518c1
 	github.com/ulikunitz/xz v0.0.0-20180703112113-636d36a76670
 	github.com/vmware/govmomi v0.0.0-20170707011325-c2105a174311
