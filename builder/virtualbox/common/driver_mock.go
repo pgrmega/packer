@@ -36,7 +36,7 @@ type DriverMock struct {
 	SuppressMessagesCalled bool
 	SuppressMessagesErr    error
 
-	VBoxManageCalls [][]string
+	VBoxManageCalls []string
 	VBoxManageErrs  []error
 
 	VerifyCalled bool
@@ -97,7 +97,7 @@ func (d *DriverMock) SuppressMessages() error {
 }
 
 func (d *DriverMock) VBoxManage(args ...string) error {
-	d.VBoxManageCalls = append(d.VBoxManageCalls, args)
+	d.VBoxManageCalls = append(d.VBoxManageCalls, args...)
 
 	if len(d.VBoxManageErrs) >= len(d.VBoxManageCalls) {
 		return d.VBoxManageErrs[len(d.VBoxManageCalls)-1]

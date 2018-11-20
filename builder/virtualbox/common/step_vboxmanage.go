@@ -3,7 +3,8 @@ package common
 import (
 	"context"
 	"fmt"
-	"strings"
+
+	"github.com/txgruppi/parseargs-go"
 
 	"github.com/hashicorp/packer/helper/multistep"
 	"github.com/hashicorp/packer/packer"
@@ -24,7 +25,7 @@ type commandTemplate struct {
 //
 // Produces:
 type StepVBoxManage struct {
-	Commands [][]string
+	Commands []string
 	Ctx      interpolate.Context
 }
 
@@ -42,22 +43,26 @@ func (s *StepVBoxManage) Run(_ context.Context, state multistep.StateBag) multis
 	}
 
 	for _, originalCommand := range s.Commands {
-		command := make([]string, len(originalCommand))
-		copy(command, originalCommand)
-
-		for i, arg := range command {
-			var err error
-			command[i], err = interpolate.Render(arg, &s.Ctx)
-			if err != nil {
-				err := fmt.Errorf("Error preparing vboxmanage command: %s", err)
-				state.Put("error", err)
-				ui.Error(err.Error())
-				return multistep.ActionHalt
-			}
+		command := originalCommand
+		var err error
+		command, err = interpolate.Render(command, &s.Ctx)
+		if err != nil {
+			err := fmt.Errorf("Error preparing vboxmanage command: %s", err)
+			state.Put("error", err)
+			ui.Error(err.Error())
+			return multistep.ActionHalt
 		}
 
-		ui.Message(fmt.Sprintf("Executing: %s", strings.Join(command, " ")))
-		if err := driver.VBoxManage(command...); err != nil {
+		commandWords, err := parseargs.Parse(command)
+		if err != nil {
+			err := fmt.Errorf("Error preparing vboxmanage command: %s", err)
+			state.Put("error", err)
+			ui.Error(err.Error())
+			return multistep.ActionHalt
+		}
+
+		ui.Message(fmt.Sprintf("Executing: %s", command))
+		if err := driver.VBoxManage(commandWords...); err != nil {
 			err := fmt.Errorf("Error executing command: %s", err)
 			state.Put("error", err)
 			ui.Error(err.Error())
